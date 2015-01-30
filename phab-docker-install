@@ -50,6 +50,8 @@ ${CONFIG} set mailgun.domain ${PHAB_DOMAIN}
 ${CONFIG} set phabricator.timezone "Asia/Jakarta"
 ${CONFIG} set storage.upload-size-limit 20M
 
+${CONFIG} set phabricator.show-prototypes true
+
 # FOR SMTP USE THIS
 
 # ${CONFIG} set phpmailer.mailer smtp
