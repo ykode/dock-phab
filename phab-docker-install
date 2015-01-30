@@ -1,0 +1,73 @@
+#!/bin/sh
+
+set -e
+
+if test -z ${PHAB_WORKDIR}; then
+  export PHAB_WORKDIR=/phab
+fi
+
+GIT=`which git`
+
+if test -z ${GIT}; then
+  echo "git not found, please install first" 1>&2
+  exit 1
+fi
+
+if test -z ${PHAB_BASE_URI}; then
+  echo "PHAB_BASE_URI environment variables need to be set using docker -e" 1>&2
+  exit 1
+fi
+
+if test -z ${PHAB_DOMAIN}; then
+  PHAB_DOMAIN=ykode.com
+fi
+
+
+
+cd ${PHAB_WORKDIR}
+
+${GIT} clone --depth 1 https://github.com/phacility/libphutil.git ${PHAB_WORKDIR}/libphutil
+${GIT} clone --depth 1 https://github.com/phacility/arcanist.git ${PHAB_WORKDIR}/arcanist
+${GIT} clone --depth 1 https://github.com/phacility/phabricator.git ${PHAB_WORKDIR}/phabricator
+
+PHAB_HOME=${PHAB_WORKDIR}/phabricator/
+
+STORAGE=${PHAB_HOME}/bin/storage
+CONFIG=${PHAB_HOME}/bin/config
+
+${CONFIG} set mysql.host ${MYSQL_PORT_3306_TCP_ADDR}
+${CONFIG} set mysql.user root
+${CONFIG} set mysql.pass ${MYSQL_ENV_MYSQL_ROOT_PASSWORD}
+${CONFIG} set phabricator.base-uri ${PHAB_BASE_URI}
+
+${CONFIG} set metamta.mail-adapter PhabricatorMailImplementationMailgunAdapter
+${CONFIG} set metamta.default-address noreply@${PHAB_DOMAIN}
+${CONFIG} set metamta.domain ${PHAB_DOMAIN}
+
+${CONFIG} set mailgun.api-key ${PHAB_MAILGUN_APIKEY}
+${CONFIG} set mailgun.domain ${PHAB_DOMAIN}
+
+${CONFIG} set phabricator.timezone "Asia/Jakarta"
+${CONFIG} set storage.upload-size-limit 20M
+
+# FOR SMTP USE THIS
+
+# ${CONFIG} set phpmailer.mailer smtp
+# ${CONFIG} set phpmailer.smtp-host ${PHAB_SMTP_HOST}
+# ${CONFIG} set phpmailer.smtp-port ${PHAB_SMTP_PORT}
+# ${CONFIG} set phpmailer.smtp-user ${PHAB_SMTP_USER}
+# ${CONFIG} set phpmailer.smtp-password ${PHAB_SMTP_PASS}
+# ${CONFIG} set phpmailer.smtp-protocol tls
+# ${CONFIG} set phpmailer.smtp-encoding quoted-printable
+
+
+mkdir /var/repo
+
+${CONFIG} set repository.default-local-path "/var/repo/"
+${CONFIG} set pygments.enabled true
+
+${STORAGE} upgrade --force
+
+mkdir -p /tmp/phd/pid
+
+/usr/bin/supervisord
